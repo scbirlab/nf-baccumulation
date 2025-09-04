@@ -23,7 +23,7 @@ pipeline_title = """\
 */
 if ( params.help ) {
    log.info pipeline_title + """\
-         Nextflow pipeline to .... 
+         Nextflow pipeline to process files from TargetLynx for intracellular accumulation. 
 
          Usage:
             nextflow run sbcirlab/nf-baccumulation --sample_sheet <csv> [--inputs <dir>]
@@ -68,6 +68,10 @@ log.info pipeline_title + """\
 
 include { 
    merge_compounds_and_sample_sheet;
+   normalize;
+   plots;
+   qc;
+   summarize;
 } from './modules/hts-tools.nf'
 include { 
    annotate_compounds;
@@ -118,121 +122,57 @@ workflow {
 
    lcms_ch
       .transpose() 
-      | parse_targetlynx_to_table 
+      | parse_targetlynx_to_table
+
+   parse_targetlynx_to_table.out
+      .groupTuple( by: 0 )
       | targetlynx_table_summary
    
    compound_ch
       .map { it[1] }
       .unique()
-      .map { tuple( it.name, it ) } 
+      .map { tuple( it.baseName, it ) } 
       | annotate_compounds
 
-   targetlynx_table_summary.out
-      .combine( compound_ch, by: 0 )  // expt_id, LCMS file, compound file
-      .map { [ it[2].name ] + it[0..1] }  // compound filename, expt_id, LCMS file
+   targetlynx_table_summary.out.tech_analyte
+      .combine( compound_ch.map { tuple( it[0], it[1].baseName ) }, by: 0 )  // expt_id, LCMS file, compound filename
+      .map { [ it[2] ] + it[0..1] }  // compound filename, expt_id, LCMS file
       .combine( annotate_compounds.out, by: 0 )  // compound filename, expt_id, LCMS file, compounds
       .map { it[1..-1] }  // expt_id, LCMS file, compounds
       .combine( sample_sheet )  // expt_id, LCMS file, compounds, sample_sheet
       | merge_compounds_and_sample_sheet
 
-   // ANNOTATE_DATA.out | (QC, PLOTS, SUMMARIZE)
+   normalize(
+      merge_compounds_and_sample_sheet.out,
+      Channel.value( params.control_column ),
+      Channel.value( params.positive ),
+      Channel.value( params.negative ),
+      Channel.value( params.norm_method ),
+   )
 
-}
+   qc(
+      normalize.out,
+      Channel.value( params.control_column ),
+      Channel.value( params.positive ),
+      Channel.value( params.negative ),
+      Channel.value( params.hit_grouping ),
+   )
 
-/*
- * Merge sample sheet with data files.
- */
-process QC {
+   plots(
+      normalize.out,
+      Channel.value( params.control_column ),
+      Channel.value( params.positive ),
+      Channel.value( params.negative ),
+      Channel.value( params.hit_grouping ),
+   )
 
-   tag "${expt_id}"
-
-   publishDir( qc_o, 
-               mode: 'copy' )
-
-   input:
-   tuple val( expt_id ), path( data )
-
-   output:
-   tuple val( expt_id ), path( "*.tsv" ), path( "*.png" )
-
-   script:
-   """
-   hts qc "${data}" \
-      --control ${params.control_column} \
-      --positive ${params.positive} \
-      --negative ${params.negative} \
-      --grouping ${params.grouping} \
-      --plot "${expt_id}" \
-      --output "${expt_id}_qc.tsv"
-   """
-
-}
-
-/*
- * Summarize replicates with statistics.
- */
-process SUMMARIZE {
-
-   tag "${expt_id}"
-
-   publishDir( hits_o, 
-               mode: 'copy' )
-
-   input:
-   tuple val( expt_id ), path( data )
-
-   output:
-   tuple val( expt_id ), path( "*.tsv" ), path( "*.png" )
-
-   script:
-   """
-   hts summarize "${data}" \
-      --control ${params.control_column} \
-      --positive ${params.positive} \
-      --negative ${params.negative} \
-      --grouping ${params.hit_grouping} \
-      --plot "${expt_id}_summary" \
-      --output "${expt_id}_summary.tsv" 
-   """
-
-}
-
-/*
- * Visualize plate data.
- */
-process PLOTS {
-
-   tag "${expt_id}"
-
-   publishDir( plots_o, 
-               mode: 'copy' )
-
-   input:
-   tuple val( expt_id ), path( data )
-
-   output:
-   tuple val( expt_id ), path( "*.png" )
-
-   script:
-   """
-   hts plot-hm "${data}" \
-      --grouping ${params.grouping} \
-      --output "${expt_id}" 
-
-   hts plot-rep "${data}" \
-      --control ${params.control_column} \
-      --positive ${params.positive} \
-      --negative ${params.negative} \
-      --grouping ${params.hit_grouping} \
-      --output "${expt_id}" 
-
-   hts plot-hist "${data}" \
-      --control "${params.control_column}" \
-      --positive ${params.positive} \
-      --negative ${params.negative} \
-      --output "${expt_id}" 
-
-   """
+   // summarize(
+   //    normalize.out,
+   //    Channel.value( params.control_column ),
+   //    Channel.value( params.positive ),
+   //    Channel.value( params.negative ),
+   //    Channel.value( params.hit_grouping ),
+   // )
 
 }
 

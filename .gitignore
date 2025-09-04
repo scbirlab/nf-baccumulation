@@ -1,4 +1,7 @@
 .nextflow*
+.singularity/
+.conda/
+.nextflow*
 /.nextflow/
 work/*
 /work/

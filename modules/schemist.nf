@@ -17,19 +17,26 @@ process annotate_compounds {
 
    script:
    """
-   NLINES=\$(cat "${compound_info}" | wc -l)
+   clean_filename=clean.${compound_info.extension}
+   sed '1s/^\\xEF\\xBB\\xBF//' "${compound_info}" | tr -d \$'\\r' > "\$clean_filename"
+   NLINES=\$(cat "\$clean_filename" | wc -l)
    NLINES=\$((\$NLINES-1))
-   if [ "\$NLINES" -lt 10000 ]
-   then
-      pubchem_extras="pubchem_id pubchem_name"
-   else
-      pubchem_extras=
-   fi
+   pubchem_extras=
+   #if [ "\$NLINES" -lt 10000 ]
+   #then
+   #   pubchem_extras="pubchem_id pubchem_name"
+   #else
+   #   pubchem_extras=
+   #fi
 
-   schemist convert "${compound_info}" \
+   schemist convert "\$clean_filename" \
       --to smiles inchikey id \$pubchem_extras scaffold mwt clogp tpsa \
       --options prefix=SCB- \
-      --output annotated.tsv
+   | awk -v OFS='\\t' -v fname="${compound_info}" '
+      NR == 1 { print "compound_info", \$0 }
+      NR > 0 { print fname, \$0 }
+      ' \
+   > annotated.tsv
 
    """
 
