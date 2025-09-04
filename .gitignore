@@ -1,0 +1,10 @@
+.nextflow*
+/.nextflow/
+work/*
+/work/
+
+/test/outputs/
+/test/work/
+/test/.nextflow*
+/test/.nextflow/
+/test/*.html

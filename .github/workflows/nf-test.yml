@@ -1,0 +1,20 @@
+
+name: Nextflow test
+
+on: [push]
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: nf-core/setup-nextflow@v1
+    - name: Test Nextflow pipeline
+      run: |
+          set -x
+          bash test/run-tests.sh gh

@@ -1,0 +1,11 @@
+name: nf-platereader-screen
+
+channels:
+    - conda-forge
+
+dependencies:
+    - python=3.11
+    - pip
+    - pip:
+        - 'hts-tools==0.0.4.post2'
+        - 'schemist==0.0.2'
