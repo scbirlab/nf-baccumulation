@@ -1,11 +1,19 @@
-name: nf-platereader-screen
+name: nf-baccumulation
 
 channels:
     - conda-forge
 
 dependencies:
-    - python=3.11
+    - python=3.12
     - pip
+    - conda-forge::freetype
+    - conda-forge::fontconfig
+    - conda-forge::cairo
+    - conda-forge::libpng
+    - conda-forge::xorg-libxrender 
+    - conda-forge::xorg-libxext 
+    - conda-forge::xorg-libx11
     - pip:
-        - 'hts-tools==0.0.4.post2'
-        - 'schemist==0.0.2'
+        - 'duvida[torch,chem]'
+        - 'hts-tools>=0.0.4.post2'
+        - 'schemist>=0.0.4.post1'
